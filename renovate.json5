@@ -1,0 +1,25 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "customManagers": [
+    {
+      "description": "KCC upstream version tracked in Chart.yaml",
+      "customType": "regex",
+      "fileMatch": ["^chart/config-connector/Chart\\.yaml$"],
+      "matchStrings": [
+        "(?:version|appVersion):[\\s\"]*(?<currentValue>[0-9][0-9.]+)"
+      ],
+      "depNameTemplate": "GoogleCloudPlatform/k8s-config-connector",
+      "datasourceTemplate": "github-releases",
+      "extractVersionTemplate": "^v(?<version>.+)"
+    }
+  ],
+  "packageRules": [
+    {
+      "matchPackageNames": ["GoogleCloudPlatform/k8s-config-connector"],
+      "automerge": true,
+      "automergeType": "pr",
+      "matchUpdateTypes": ["minor", "patch"]
+    }
+  ]
+}

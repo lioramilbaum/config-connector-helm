@@ -1,0 +1,25 @@
+Config Connector operator has been installed
+
+Version: {{ .Chart.Version }}
+Namespace: {{ .Release.Namespace }}
+
+To get started, apply a ConfigConnector resource to enable management of GCP resources:
+
+  kubectl apply -f - <<EOF
+  apiVersion: cnrm.cloud.google.com/v1
+  kind: ConfigConnector
+  metadata:
+    name: configconnector.cnrm.cloud.google.com
+  spec:
+    mode: cluster
+    credentialSecretName: <secret-name>
+  EOF
+
+For detailed usage and examples, see:
+  https://cloud.google.com/config-connector/docs
+
+NOTES:
+- The operator only supports linux/amd64 architecture
+- CRDs installed by this chart are configured to remain when the chart is uninstalled
+- This implementation assumes you are running in a GKE cluster. For non-GKE environments,
+  ensure the credentialSecretName secret is properly configured with your GCP credentials

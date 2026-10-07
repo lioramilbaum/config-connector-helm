@@ -1,0 +1,10 @@
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: OCIRepository
+metadata:
+  name: config-connector-helm
+  namespace: flux-system
+spec:
+  interval: 10m
+  url: oci://ghcr.io/lioramilbaum/config-connector-helm/config-connector
+  ref:
+    tag: 1.158.0

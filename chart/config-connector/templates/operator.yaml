@@ -1,0 +1,86 @@
+{{- if ne .Release.Namespace "configconnector-operator-system" }}
+  {{- fail (printf "Config Connector operator MUST be installed in the 'configconnector-operator-system' namespace. The operator binary hard-codes this namespace and cannot be changed. Current namespace: %s" .Release.Namespace) }}
+{{- end }}
+{{- $found := 0 }}
+{{- range $raw := regexSplit "(?m)^---\\s*$" (.Files.Get "files/configconnector-operator.yaml") -1 }}
+  {{- $doc := fromYaml $raw }}
+  {{- if $doc.kind }}
+    {{- if eq $doc.kind "Namespace" }}
+      {{- continue }}
+    {{- end }}
+    {{- if and (eq $doc.kind "CustomResourceDefinition") (not $.Values.crds.enabled) }}
+      {{- continue }}
+    {{- end }}
+    {{- $_ := set $doc.metadata "labels" (merge (include "config-connector.labels" $ | fromYaml) ($doc.metadata.labels | default dict)) }}
+    {{- if and (eq $doc.kind "CustomResourceDefinition") $.Values.crds.keep }}
+      {{- $_ := set $doc.metadata "annotations" (merge (dict "helm.sh/resource-policy" "keep") ($doc.metadata.annotations | default dict)) }}
+    {{- end }}
+    {{- if eq $doc.kind "StatefulSet" }}
+      {{- $found = add1 $found }}
+      {{- if ne (len $doc.spec.template.spec.containers) 1 }}
+        {{- fail "expected exactly one container in StatefulSet pod spec" }}
+      {{- end }}
+      {{- $container := index $doc.spec.template.spec.containers 0 }}
+      {{- if ne $container.name "manager" }}
+        {{- fail "expected container to be named 'manager'" }}
+      {{- end }}
+      {{- $currentImage := $container.image }}
+      {{- if not (contains ":" $currentImage) }}
+        {{- fail (printf "upstream container image must have a tag: %s" $currentImage) }}
+      {{- end }}
+      {{- $parts := splitList ":" $currentImage }}
+      {{- $upstreamTag := index $parts (sub (len $parts) 1) }}
+      {{- if ne $upstreamTag $.Chart.AppVersion }}
+        {{- fail (printf "upstream image tag %s does not match Chart.AppVersion %s" $upstreamTag $.Chart.AppVersion) }}
+      {{- end }}
+      {{- $_ := set $container "image" (include "config-connector.image" $) }}
+      {{- if $.Values.resources }}
+        {{- $_ := set $container "resources" $.Values.resources }}
+      {{- end }}
+      {{- if $.Values.goMemLimit }}
+        {{- $env := $container.env | default list }}
+        {{- $found_limit := false }}
+        {{- range $i, $e := $env }}
+          {{- if eq $e.name "GOMEMLIMIT" }}
+            {{- $_ := set $e "value" $.Values.goMemLimit }}
+            {{- $found_limit = true }}
+          {{- end }}
+        {{- end }}
+        {{- if not $found_limit }}
+          {{- $env = append $env (dict "name" "GOMEMLIMIT" "value" $.Values.goMemLimit) }}
+          {{- $_ := set $container "env" $env }}
+        {{- end }}
+      {{- end }}
+      {{- $podSpec := $doc.spec.template.spec }}
+      {{- if $.Values.nodeSelector }}
+        {{- $_ := set $podSpec "nodeSelector" $.Values.nodeSelector }}
+      {{- end }}
+      {{- if $.Values.tolerations }}
+        {{- $_ := set $podSpec "tolerations" $.Values.tolerations }}
+      {{- end }}
+      {{- if $.Values.affinity }}
+        {{- $_ := set $podSpec "affinity" $.Values.affinity }}
+      {{- end }}
+      {{- if $.Values.topologySpreadConstraints }}
+        {{- $_ := set $podSpec "topologySpreadConstraints" $.Values.topologySpreadConstraints }}
+      {{- end }}
+      {{- if $.Values.priorityClassName }}
+        {{- $_ := set $podSpec "priorityClassName" $.Values.priorityClassName }}
+      {{- end }}
+      {{- if $.Values.imagePullSecrets }}
+        {{- $_ := set $podSpec "imagePullSecrets" $.Values.imagePullSecrets }}
+      {{- end }}
+      {{- $podMeta := $doc.spec.template.metadata }}
+      {{- $_ := set $podMeta "annotations" (merge ($.Values.podAnnotations | default dict) ($podMeta.annotations | default dict)) }}
+      {{- $_ := set $podMeta "labels" (merge ($.Values.podLabels | default dict) ($podMeta.labels | default dict)) }}
+    {{- end }}
+    {{- if eq $doc.kind "ServiceAccount" }}
+      {{- $_ := set $doc.metadata "annotations" (merge ($.Values.serviceAccount.annotations | default dict) ($doc.metadata.annotations | default dict)) }}
+    {{- end }}
+---
+{{ toYaml $doc }}
+  {{- end }}
+{{- end }}
+{{- if ne $found 1 }}
+  {{- fail "expected exactly one StatefulSet in upstream manifest" }}
+{{- end }}
