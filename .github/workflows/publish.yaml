@@ -166,6 +166,12 @@ jobs:
                   subject: https://github.com/lioramilbaum/config-connector-helm/.github/workflows/publish.yaml@refs/heads/main
           EOF
 
+      - name: Wait for OCIRepository ready
+        run: |
+          kubectl wait --for=condition=ready ocirepository/config-connector-helm \
+            -n flux-system \
+            --timeout=3m
+
       - name: Apply HelmRelease
         run: |
           cat <<EOF | kubectl apply -f -
@@ -192,3 +198,9 @@ jobs:
           kubectl wait --for=condition=ready helmrelease/config-connector \
             -n flux-system \
             --timeout=5m
+
+      - name: Debug Flux state on failure
+        if: failure()
+        run: |
+          kubectl describe ocirepository/config-connector-helm -n flux-system || true
+          kubectl describe helmrelease/config-connector -n flux-system || true
