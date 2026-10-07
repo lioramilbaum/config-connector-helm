@@ -1,0 +1,17 @@
+# Patterns to ignore when building packages.
+# This supports shell glob patterns, relative path patterns, and
+# paths relative to the chart development directory.
+
+.DS_Store
+.git
+.gitignore
+.helmignore
+.buildinfo
+.mypy_cache
+.pytest_cache
+*.pyc
+*.pyo
+*.egg
+*.egg-info
+dist
+build

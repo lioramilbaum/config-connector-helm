@@ -1,0 +1,194 @@
+name: Publish
+
+on:
+  push:
+    branches: [main]
+    paths: [chart/config-connector/Chart.yaml]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version to publish (leave empty to use Chart.yaml version)"
+        required: false
+        type: string
+      force:
+        description: "Republish even if tag already exists on GHCR"
+        required: false
+        type: boolean
+        default: false
+
+permissions: {}
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  resolve-version:
+    name: Resolve version
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.resolve.outputs.version }}
+      skip: ${{ steps.resolve.outputs.skip }}
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - uses: jdx/mise-action@249c01ba271e19fa76eede7f766161cc95ace489  # v2.1.10
+
+      - name: Resolve version
+        id: resolve
+        run: |
+          if [[ -n "${{ inputs.version }}" ]]; then
+            VERSION="${{ inputs.version }}"
+          else
+            VERSION=$(grep '^version:' chart/config-connector/Chart.yaml | awk '{print $2}')
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+          # Check idempotency: skip if already published (unless --force)
+          if [[ "${{ inputs.force }}" != "true" ]]; then
+            if crane ls ghcr.io/lioramilbaum/config-connector-helm/config-connector 2>/dev/null | grep -qx "$VERSION"; then
+              echo "skip=true" >> "$GITHUB_OUTPUT"
+              echo "Version $VERSION already published, skipping"
+            else
+              echo "skip=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  test:
+    name: Test
+    needs: resolve-version
+    if: needs.resolve-version.outputs.skip != 'true'
+    uses: ./.github/workflows/test.yaml
+    with:
+      kcc-version: ${{ needs.resolve-version.outputs.version }}
+
+  publish:
+    name: Publish
+    needs: [resolve-version, test]
+    runs-on: ubuntu-latest
+    if: github.repository == 'lioramilbaum/config-connector-helm' && needs.resolve-version.outputs.skip != 'true'
+    permissions:
+      contents: read
+      packages: write
+      id-token: write
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - uses: jdx/mise-action@249c01ba271e19fa76eede7f766161cc95ace489  # v2.1.10
+
+      - uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb  # v3.8.2
+
+      - uses: docker/login-action@74a5d142397b4f367a81961eba4e8cd7edddf772  # v3.4.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Fetch manifest
+        run: scripts/fetch-manifest.sh ${{ needs.resolve-version.outputs.version }}
+
+      - name: Package chart
+        run: |
+          helm package chart/config-connector \
+            --version ${{ needs.resolve-version.outputs.version }} \
+            --app-version ${{ needs.resolve-version.outputs.version }}
+
+      - name: Push to GHCR
+        run: |
+          helm registry login ghcr.io -u ${{ github.actor }} -p ${{ secrets.GITHUB_TOKEN }}
+          helm push config-connector-${{ needs.resolve-version.outputs.version }}.tgz oci://ghcr.io/lioramilbaum/config-connector-helm
+
+      - name: Get chart digest
+        id: digest
+        run: |
+          DIGEST=$(crane digest ghcr.io/lioramilbaum/config-connector-helm/config-connector:${{ needs.resolve-version.outputs.version }})
+          echo "value=$DIGEST" >> "$GITHUB_OUTPUT"
+
+      - name: Sign chart
+        run: |
+          cosign sign --yes \
+            ghcr.io/lioramilbaum/config-connector-helm/config-connector@${{ steps.digest.outputs.value }}
+
+      - name: Verify signature
+        run: |
+          cosign verify \
+            --certificate-identity https://github.com/lioramilbaum/config-connector-helm/.github/workflows/publish.yaml@refs/heads/main \
+            --certificate-oidc-issuer https://token.actions.githubusercontent.com \
+            ghcr.io/lioramilbaum/config-connector-helm/config-connector@${{ steps.digest.outputs.value }}
+
+      - name: Verify anonymous access
+        run: |
+          helm pull oci://ghcr.io/lioramilbaum/config-connector-helm/config-connector \
+            --version ${{ needs.resolve-version.outputs.version }} \
+            --untar \
+            --untardir /tmp/verify
+
+  verify-flux:
+    name: Verify Flux integration
+    needs: [resolve-version, publish]
+    runs-on: ubuntu-latest
+    if: github.repository == 'lioramilbaum/config-connector-helm' && needs.resolve-version.outputs.skip != 'true'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683  # v4.2.2
+
+      - uses: jdx/mise-action@249c01ba271e19fa76eede7f766161cc95ace489  # v2.1.10
+
+      - uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb  # v3.8.2
+
+      - name: Create kind cluster
+        run: |
+          kind create cluster --name test --image kindest/node:v1.30.0
+
+      - name: Install Flux
+        run: flux install
+
+      - name: Apply OCIRepository with verification
+        run: |
+          cat <<EOF | kubectl apply -f -
+          apiVersion: source.toolkit.fluxcd.io/v1
+          kind: OCIRepository
+          metadata:
+            name: config-connector-helm
+            namespace: flux-system
+          spec:
+            interval: 10m
+            url: oci://ghcr.io/lioramilbaum/config-connector-helm/config-connector
+            ref:
+              tag: ${{ needs.resolve-version.outputs.version }}
+            verify:
+              provider: cosign
+              matchOIDCIdentity:
+                - issuer: https://token.actions.githubusercontent.com
+                  subject: https://github.com/lioramilbaum/config-connector-helm/.github/workflows/publish.yaml@refs/heads/main
+          EOF
+
+      - name: Apply HelmRelease
+        run: |
+          cat <<EOF | kubectl apply -f -
+          apiVersion: helm.toolkit.fluxcd.io/v2
+          kind: HelmRelease
+          metadata:
+            name: config-connector
+            namespace: flux-system
+          spec:
+            chartRef:
+              kind: OCIRepository
+              name: config-connector-helm
+            interval: 10m
+            install:
+              crds: Create
+              createNamespace: true
+            upgrade:
+              crds: CreateReplace
+            targetNamespace: configconnector-operator-system
+          EOF
+
+      - name: Wait for HelmRelease ready
+        run: |
+          kubectl wait --for=condition=ready helmrelease/config-connector \
+            -n flux-system \
+            --timeout=5m

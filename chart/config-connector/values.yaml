@@ -1,0 +1,54 @@
+# Config Connector operator Helm chart values
+# All defaults reproduce the upstream bundle exactly
+
+# The operator namespace is hard-coded in the binary and cannot be changed.
+# It MUST be "configconnector-operator-system" in all deployments.
+# See: github.com/GoogleCloudPlatform/k8s-config-connector/blob/main/experiments/composite/cnrm-module/static/constants.go
+
+crds:
+  # Install CRD objects from the upstream manifest
+  enabled: true
+  # Keep CRDs when the chart is uninstalled (recommended for production)
+  keep: true
+
+image:
+  # Repository override; empty string = use upstream gcr.io/gke-release/cnrm/operator
+  repository: ""
+  # Tag override; empty string = use appVersion from Chart.yaml
+  tag: ""
+  # Image digest override; empty string = do not use digest-based pinning
+  digest: ""
+  # Pull policy; empty string = use upstream Always
+  pullPolicy: ""
+
+# Image pull secrets for private registries
+imagePullSecrets: []
+
+# Container resource requests and limits; empty = use upstream (100m/512Mi request, 1Gi limit)
+resources: {}
+#  requests:
+#    cpu: 100m
+#    memory: 512Mi
+#  limits:
+#    memory: 1Gi
+
+# Go runtime memory limit; empty string = use upstream 900MiB
+goMemLimit: ""
+
+# Pod scheduling constraints
+nodeSelector: {}
+tolerations: []
+affinity: {}
+topologySpreadConstraints: []
+priorityClassName: ""
+
+# Pod metadata
+podAnnotations: {}
+podLabels: {}
+
+# Service account annotations
+serviceAccount:
+  annotations: {}
+
+# Common labels to apply to all resources (excluding StatefulSet selectors)
+commonLabels: {}

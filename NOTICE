@@ -1,0 +1,3 @@
+This repository contains and redistributes the Google Config Connector operator manifest,
+which is copyright Google LLC and licensed under the Apache License, Version 2.0.
+Source: https://github.com/GoogleCloudPlatform/k8s-config-connector
