@@ -3,6 +3,9 @@ Test rendering of the Config Connector Helm chart.
 """
 
 import copy
+import re
+
+import yaml
 
 
 def normalize_for_comparison(doc):
@@ -33,7 +36,12 @@ class TestDefaultRender:
         Each upstream object (except Namespace) should appear in rendered output
         with only Helm-managed labels/annotations differing.
         """
-        rendered = helm_template()
+        rendered = copy.deepcopy(helm_template())
+        # Digest is committed in values.yaml; strip it so the image reference compares to the upstream manifest exactly.
+        for doc in rendered:
+            if doc.get("kind") == "StatefulSet":
+                for container in doc["spec"]["template"]["spec"]["containers"]:
+                    container["image"] = container["image"].split("@")[0]
 
         # Build lookup tables
         upstream_by_key = {}
@@ -64,12 +72,32 @@ class TestDefaultRender:
         )
 
 
+class TestDefaultDigestPin:
+    def test_default_render_pins_committed_digest(self, helm_template, chart_dir):
+        """Default render must use the digest committed in values.yaml.
+
+        Fails if values.yaml has digest: "" (reverted to publish-time approach).
+        """
+        chart_yaml = yaml.safe_load((chart_dir / "Chart.yaml").read_text())
+        values_yaml = yaml.safe_load((chart_dir / "values.yaml").read_text())
+        app_version = chart_yaml["appVersion"]
+        digest = values_yaml["image"]["digest"]
+        assert re.match(r"^sha256:[a-f0-9]{64}$", digest), (
+            f"values.yaml image.digest must be a pinned sha256 digest, got: {digest!r}"
+        )
+        docs = helm_template()
+        sts = next(d for d in docs if d["kind"] == "StatefulSet")
+        image = sts["spec"]["template"]["spec"]["containers"][0]["image"]
+        expected = f"gcr.io/gke-release/cnrm/operator:{app_version}@{digest}"
+        assert image == expected, f"Expected {expected!r}, got {image!r}"
+
+
 class TestImageOverrides:
     def test_overrides_image_tag(self, helm_template):
         """
         Override image tag and verify it's applied to the StatefulSet.
         """
-        docs = helm_template(set_values={"image.tag": "9.9.9"})
+        docs = helm_template(set_values={"image.tag": "9.9.9", "image.digest": ""})
 
         ss = next((d for d in docs if d.get("kind") == "StatefulSet"), None)
         assert ss is not None, "StatefulSet not found"
@@ -78,6 +106,29 @@ class TestImageOverrides:
         assert container["image"].endswith(":9.9.9"), (
             f"Image tag not overridden: {container['image']}"
         )
+
+
+class TestImageDigest:
+    def test_digest_renders_tag_and_digest(self, helm_template, chart_dir):
+        """Fails without _helpers.tpl change (change 2). Digest branch must render repo:tag@digest."""
+        chart_yaml = yaml.safe_load((chart_dir / "Chart.yaml").read_text())
+        app_version = chart_yaml["appVersion"]
+        fake_digest = "sha256:" + "a" * 64
+        docs = helm_template(set_values={"image.digest": fake_digest})
+        sts = next(d for d in docs if d["kind"] == "StatefulSet")
+        image = sts["spec"]["template"]["spec"]["containers"][0]["image"]
+        expected = f"gcr.io/gke-release/cnrm/operator:{app_version}@{fake_digest}"
+        assert image == expected, f"Expected {expected!r}, got {image!r}"
+
+    def test_empty_digest_renders_tag_only(self, helm_template, chart_dir):
+        """With empty digest, image must not contain @."""
+        chart_yaml = yaml.safe_load((chart_dir / "Chart.yaml").read_text())
+        app_version = chart_yaml["appVersion"]
+        docs = helm_template(set_values={"image.digest": ""})
+        sts = next(d for d in docs if d["kind"] == "StatefulSet")
+        image = sts["spec"]["template"]["spec"]["containers"][0]["image"]
+        assert image.endswith(f":{app_version}"), f"Image should end with tag: {image!r}"
+        assert "@" not in image, f"Image must not contain @ when digest is empty: {image!r}"
 
 
 class TestResourceOverrides:

@@ -1,15 +1,16 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-# Usage: fetch-manifest.sh <version> [dest-dir]
+# Usage: fetch-manifest.sh [dest-dir]
 # Downloads the KCC operator bundle from GCS, verifies MD5, extracts only
 # operator-system/configconnector-operator.yaml (not autopilot), asserts the
-# operator image tag matches the requested version, copies to dest-dir
+# operator image tag matches the version read from Chart.yaml appVersion, copies to dest-dir
 # (default: chart/config-connector/files/).
 # Exits 3 if the GCS bundle returns 404 (version not yet available).
 
-VERSION="${1:?version required}"
-DEST="${2:-$(dirname "$0")/../chart/config-connector/files}"
+CHART_DIR="$(dirname "$0")/../chart/config-connector"
+VERSION=$(helm show chart "$CHART_DIR" | awk '/^appVersion:/{print $2}')
+DEST="${1:-${CHART_DIR}/files}"
 
 TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TMPDIR"' EXIT

@@ -107,7 +107,7 @@ All defaults reproduce the upstream bundle exactly. Key values:
 |-----|---------|-------------|
 | `image.repository` | `""` (uses upstream) | Container image repository override |
 | `image.tag` | `""` (uses Chart.appVersion) | Container image tag override |
-| `image.digest` | `""` | Container image digest (optional, for pinning) |
+| `image.digest` | `sha256:...` (Renovate-managed) | Digest of `gcr.io/gke-release/cnrm/operator:<appVersion>`. Committed and updated by Renovate in the same PR as the chart version. Set to `""` or a matching digest when overriding `image.tag` or `image.repository` |
 | `image.pullPolicy` | `""` (uses upstream Always) | Image pull policy |
 | `imagePullSecrets` | `[]` | Image pull secrets for private registries |
 
@@ -189,7 +189,7 @@ cosign verify \
 
 1. **Discovery** (every 6 hours): Query GitHub for new KCC releases, check GCS for availability
 2. **Testing**: Run unit and e2e tests for each new version
-3. **Publishing**: Package, sign, and push to GHCR as an OCI image
+3. **Publishing**: Package, sign, and push to GHCR as an OCI image. The operator image digest is committed in `values.yaml` and maintained by Renovate, so the signature covers it
 4. **Verification**: Pull and verify in a Flux e2e test
 
 All workflows are CI-driven. Manual backfill of older versions is supported via workflow dispatch.

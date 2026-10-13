@@ -18,11 +18,25 @@
       datasourceTemplate: 'github-releases',
       extractVersionTemplate: '^v(?<version>.+)',
     },
+    {
+      description: 'KCC operator image digest in values.yaml (must track Chart.yaml appVersion)',
+      customType: 'regex',
+      managerFilePatterns: [
+        '/^chart/config-connector/values\\.yaml$/',
+      ],
+      matchStrings: [
+        '# renovate: image=(?<depName>\\S+) tag=(?<currentValue>\\d+\\.\\d+\\.\\d+)\\n  digest: "(?<currentDigest>sha256:[a-f0-9]{64})"',
+      ],
+      datasourceTemplate: 'docker',
+      versioningTemplate: 'docker',
+      autoReplaceStringTemplate: '# renovate: image={{{depName}}} tag={{{newValue}}}\n  digest: "{{{newDigest}}}"',
+    },
   ],
   packageRules: [
     {
       matchPackageNames: [
         'GoogleCloudPlatform/k8s-config-connector',
+        'gcr.io/gke-release/cnrm/operator',
       ],
       automerge: true,
       automergeType: 'pr',
@@ -30,6 +44,21 @@
         'minor',
         'patch',
       ],
+    },
+    {
+      // Belt-and-suspenders: the customManager matchStrings already constrains to x.y.z,
+      // but this blocks Renovate from offering non-release tags if extraction is ever widened.
+      matchPackageNames: [
+        'gcr.io/gke-release/cnrm/operator',
+      ],
+      allowedVersions: '/^\\d+\\.\\d+\\.\\d+$/',
+    },
+    {
+      matchPackageNames: [
+        'GoogleCloudPlatform/k8s-config-connector',
+        'gcr.io/gke-release/cnrm/operator',
+      ],
+      groupName: 'Config Connector',
     },
   ],
 }
