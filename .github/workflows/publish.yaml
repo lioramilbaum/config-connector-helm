@@ -32,7 +32,7 @@ jobs:
       version: ${{ steps.resolve.outputs.version }}
       skip: ${{ steps.resolve.outputs.skip }}
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - uses: jdx/mise-action@249c01ba271e19fa76eede7f766161cc95ace489  # v2.1.10
 
@@ -76,7 +76,7 @@ jobs:
       packages: write
       id-token: write
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - uses: jdx/mise-action@249c01ba271e19fa76eede7f766161cc95ace489  # v2.1.10
 
@@ -133,7 +133,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.repository == 'lioramilbaum/config-connector-helm' && needs.resolve-version.outputs.skip != 'true'
     steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
 
       - uses: jdx/mise-action@249c01ba271e19fa76eede7f766161cc95ace489  # v2.1.10
 
