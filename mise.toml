@@ -1,6 +1,6 @@
 [tools]
 helm = "3.22.0"
-cosign = "2.4.1"
+cosign = "2.6.5"
 crane = "0.21.0"
 kind = "0.24.0"
 kubectl = "1.31.3"
