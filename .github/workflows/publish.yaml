@@ -34,7 +34,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
 
-      - uses: jdx/mise-action@249c01ba271e19fa76eede7f766161cc95ace489  # v2.1.10
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac  # v2.4.4
 
       - name: Resolve version
         id: resolve
@@ -78,7 +78,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
 
-      - uses: jdx/mise-action@249c01ba271e19fa76eede7f766161cc95ace489  # v2.1.10
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac  # v2.4.4
 
       - uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb  # v3.8.2
 
@@ -135,7 +135,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262  # v4.4.0
 
-      - uses: jdx/mise-action@249c01ba271e19fa76eede7f766161cc95ace489  # v2.1.10
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac  # v2.4.4
 
       - uses: sigstore/cosign-installer@3454372f43399081ed03b604cb2d021dabca52bb  # v3.8.2
 
