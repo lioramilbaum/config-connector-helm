@@ -63,8 +63,6 @@ jobs:
     needs: resolve-version
     if: needs.resolve-version.outputs.skip != 'true'
     uses: ./.github/workflows/test.yaml
-    with:
-      kcc-version: ${{ needs.resolve-version.outputs.version }}
 
   publish:
     name: Publish
@@ -89,7 +87,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Fetch manifest
-        run: scripts/fetch-manifest.sh ${{ needs.resolve-version.outputs.version }}
+        run: scripts/fetch-manifest.sh
 
       - name: Package chart
         run: |
@@ -119,13 +117,6 @@ jobs:
             --certificate-identity https://github.com/lioramilbaum/config-connector-helm/.github/workflows/publish.yaml@refs/heads/main \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
             ghcr.io/lioramilbaum/config-connector-helm/config-connector@${{ steps.digest.outputs.value }}
-
-      - name: Verify anonymous access
-        run: |
-          helm pull oci://ghcr.io/lioramilbaum/config-connector-helm/config-connector \
-            --version ${{ needs.resolve-version.outputs.version }} \
-            --untar \
-            --untardir /tmp/verify
 
   verify-flux:
     name: Verify Flux integration

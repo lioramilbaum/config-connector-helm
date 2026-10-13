@@ -38,7 +38,7 @@ tests/
   publish.yaml                     # Scheduled discovery, test, package, sign, publish
 mise.toml                          # Pinned tool versions and task definitions
 pyproject.toml                     # Python project metadata (pytest, pyyaml)
-renovate.json5                     # Renovate config: auto-bump KCC version
+renovate.json5                     # Renovate config: auto-bump KCC version and operator image digest (grouped)
 README.md                          # User-facing documentation
 LICENSE                            # Apache 2.0 (created by GitHub)
 NOTICE                             # Attribution to upstream
@@ -59,10 +59,23 @@ The manifest is downloaded at package time by scripts/fetch-manifest.sh and is e
 
 The operator binary hard-codes the namespace to configconnector-operator-system and cannot be changed. The chart guards this in operator.yaml with an explicit `.Release.Namespace` check. Users MUST install into this namespace.
 
+### Operator image digest is committed and Renovate-managed
+
+`image.digest` in `chart/config-connector/values.yaml` is the digest of `gcr.io/gke-release/cnrm/operator:<appVersion>`. It is committed and must be a non-empty `sha256:` digest. It is preceded by a Renovate marker on the line directly above it, with exactly two-space indentation:
+
+```yaml
+  # renovate: image=gcr.io/gke-release/cnrm/operator tag=1.158.0
+  digest: "sha256:..."
+```
+
+The marker tag must equal `Chart.yaml` appVersion. Renovate updates the marker tag and the digest together, in one grouped "Config Connector" PR with the `Chart.yaml` version bump. Digest-type updates are not automerged (automerge covers only minor and patch).
+
+`tests/test_guards.py` (`TestCommittedDigest`) enforces that the digest is non-empty and the marker tag equals appVersion. `tests/test_render.py` (`TestDefaultDigestPin`) confirms the default render applies the committed digest. Do not edit the digest by hand; only Renovate should update it.
+
 ### How to fetch the manifest
 
 ```bash
-scripts/fetch-manifest.sh 1.158.0
+scripts/fetch-manifest.sh
 ```
 
 This script:
@@ -74,18 +87,17 @@ This script:
 
 ## The publish workflow
 
-Scheduled every 6 hours (at :23 UTC): cron '23 */6 * * *'
+Triggers on push to `main` when `chart/config-connector/Chart.yaml` changes, and on manual dispatch.
 
-1. **discover**: Queries GitHub releases (non-draft, non-prerelease, ^v\d+\.\d+\.\d+), filters already-published versions, checks GCS availability, outputs matrix
-2. **test**: Runs test.yaml per matrix version (unit, e2e-helm, e2e-flux)
-3. **publish** (serial, max-parallel=1): For each version:
+1. **resolve-version**: Reads version from `inputs.version` (manual dispatch) or Chart.yaml; checks GHCR idempotency
+2. **test**: Runs test.yaml (unit, e2e-helm, e2e-flux)
+3. **publish**:
    - Fetch manifest
    - `helm package` to create .tgz
    - Push to GHCR as OCI image
    - Sign with cosign keyless
    - Verify signature
 4. **verify-flux**: Pull real artifact from GHCR with Flux, verify cosign signature via OCIRepository
-5. **report-status** (on schedule only): Open/comment/close issue "publish: scheduled workflow is failing"
 
 All action SHAs are pinned to known-good digests.
 
@@ -97,7 +109,11 @@ To publish a specific older version:
 gh workflow run publish.yaml -f version=1.157.0 -f force=false
 ```
 
+**Note:** this only works for the version currently pinned in `Chart.yaml` appVersion and `values.yaml`. Running with any other version causes the `test` job to fail because the committed digest marker does not match. To backfill an older version, you must first update `values.yaml` with the matching digest.
+
 With `force=true`, even already-published versions are included.
+
+The committed digest in `values.yaml` belongs to the current appVersion only. A backfill with a different version fails the test job because the marker tag in values.yaml differs from the version being tested.
 
 ## Testing locally
 
@@ -134,7 +150,7 @@ operator.yaml is the core template:
 5. **StatefulSet overrides**:
    - Guard: fail if not exactly 1 StatefulSet with exactly 1 container named "manager"
    - Guard: fail if upstream image tag != Chart.AppVersion (version mismatch check)
-   - Override container image if `image.tag`, `image.repository`, or `image.digest` set
+   - Override container image if `image.tag`, `image.repository`, or `image.digest` set. When `image.digest` is set, the image renders as `repo:tag@digest`
    - Override resources if `resources` non-empty
    - Set/merge GOMEMLIMIT env var if `goMemLimit` set
    - Set pod spec scheduling (nodeSelector, tolerations, affinity, topologySpreadConstraints, priorityClassName)
@@ -150,8 +166,8 @@ The template preserves the upstream manifest byte-for-byte (except for overrides
 Before pushing:
 
 ```bash
-# Fetch the test version
-scripts/fetch-manifest.sh 1.158.0
+# Fetch the manifest
+scripts/fetch-manifest.sh
 
 # Lint the chart
 helm lint chart/config-connector -n configconnector-operator-system
@@ -168,7 +184,7 @@ helm template x chart/config-connector -n configconnector-operator-system | kube
 
 ## Publishing a new release (manual checklist)
 
-1. Renovate opens a PR bumping Chart.yaml version and appVersion
+1. Renovate opens one grouped "Config Connector" PR that bumps Chart.yaml version and appVersion and updates the operator image digest in values.yaml
 2. CI runs, downloads the bundle, tests it
 3. Review and merge
 4. The scheduled publish workflow picks it up and publishes to GHCR

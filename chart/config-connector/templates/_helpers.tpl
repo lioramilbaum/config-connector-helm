@@ -44,7 +44,7 @@ Expects to be called with full context: include "config-connector.image" .
 {{- $tag := .Values.image.tag | default .Chart.AppVersion }}
 {{- $image := printf "%s:%s" $repo $tag }}
 {{- if .Values.image.digest }}
-{{- printf "%s@%s" $repo .Values.image.digest }}
+{{- printf "%s@%s" $image .Values.image.digest }}
 {{- else }}
 {{- $image }}
 {{- end }}

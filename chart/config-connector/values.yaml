@@ -16,8 +16,12 @@ image:
   repository: ""
   # Tag override; empty string = use appVersion from Chart.yaml
   tag: ""
-  # Image digest override; empty string = do not use digest-based pinning
-  digest: ""
+  # Image digest for gcr.io/gke-release/cnrm/operator:<appVersion>.
+  # Committed here and updated by Renovate in the same PR as the Chart.yaml version bump.
+  # CI fails if empty or if the marker tag below differs from Chart.yaml appVersion (tests/test_guards.py).
+  # When overriding image.tag or image.repository, set the matching digest or "" to use tag-only.
+  # renovate: image=gcr.io/gke-release/cnrm/operator tag=1.158.0
+  digest: "sha256:0abd1324ad09a287307aadc73006271e6b4c1511fe74a0e96e4bae088fd92331"
   # Pull policy; empty string = use upstream Always
   pullPolicy: ""
 
