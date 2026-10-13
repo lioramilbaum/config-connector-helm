@@ -6,23 +6,39 @@
   ],
   customManagers: [
     {
-      description: 'KCC upstream version tracked in Chart.yaml',
+      // Uses the same docker datasource as the values.yaml manager so Chart.yaml and
+      // values.yaml always resolve from one lookup and can never produce a split PR.
+      description: 'KCC upstream version tracked in Chart.yaml (docker tags, tracks gcr.io/gke-release/cnrm/operator with values.yaml)',
       customType: 'regex',
       managerFilePatterns: [
         '/^chart/config-connector/Chart\\.yaml$/',
       ],
       matchStrings: [
         '(?:version|appVersion):[\\s"]*(?<currentValue>[0-9][0-9.]+)',
+        'gs://configconnector-operator/(?<currentValue>\\d+\\.\\d+\\.\\d+)/release-bundle\\.tar\\.gz',
       ],
-      depNameTemplate: 'GoogleCloudPlatform/k8s-config-connector',
-      datasourceTemplate: 'github-releases',
-      extractVersionTemplate: '^v(?<version>.+)',
+      depNameTemplate: 'gcr.io/gke-release/cnrm/operator',
+      datasourceTemplate: 'docker',
+      versioningTemplate: 'docker',
+    },
+    {
+      description: 'KCC operator image digest in values.yaml (must track Chart.yaml appVersion)',
+      customType: 'regex',
+      managerFilePatterns: [
+        '/^chart/config-connector/values\\.yaml$/',
+      ],
+      matchStrings: [
+        '# renovate: image=(?<depName>\\S+) tag=(?<currentValue>\\d+\\.\\d+\\.\\d+)\\n  digest: "(?<currentDigest>sha256:[a-f0-9]{64})"',
+      ],
+      datasourceTemplate: 'docker',
+      versioningTemplate: 'docker',
+      autoReplaceStringTemplate: '# renovate: image={{{depName}}} tag={{{newValue}}}\n  digest: "{{{newDigest}}}"',
     },
   ],
   packageRules: [
     {
       matchPackageNames: [
-        'GoogleCloudPlatform/k8s-config-connector',
+        'gcr.io/gke-release/cnrm/operator',
       ],
       automerge: true,
       automergeType: 'pr',
@@ -30,6 +46,21 @@
         'minor',
         'patch',
       ],
+    },
+    {
+      // REQUIRED: the GCR registry has all-digit commit-hash tags (e.g. 1159540) that docker
+      // versioning ranks above x.y.z releases. This rule restricts candidates to x.y.z and
+      // now covers Chart.yaml dependencies too, not just values.yaml.
+      matchPackageNames: [
+        'gcr.io/gke-release/cnrm/operator',
+      ],
+      allowedVersions: '/^\\d+\\.\\d+\\.\\d+$/',
+    },
+    {
+      matchPackageNames: [
+        'gcr.io/gke-release/cnrm/operator',
+      ],
+      groupName: 'Config Connector',
     },
   ],
 }

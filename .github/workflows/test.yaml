@@ -2,10 +2,6 @@ name: Test
 
 on:
   workflow_call:
-    inputs:
-      kcc-version:
-        required: true
-        type: string
 
 jobs:
   unit:
@@ -17,7 +13,7 @@ jobs:
       - uses: jdx/mise-action@08ae2a091c038e1e05ec6f5115dc5c69d5a2a6b8  # v5.1.2
 
       - name: Fetch manifest
-        run: scripts/fetch-manifest.sh ${{ inputs.kcc-version }}
+        run: scripts/fetch-manifest.sh
 
       - name: Helm lint
         run: helm lint chart/config-connector --namespace configconnector-operator-system
@@ -49,7 +45,7 @@ jobs:
           kind create cluster --name test --image kindest/node:v1.30.0
 
       - name: Fetch manifest
-        run: scripts/fetch-manifest.sh ${{ inputs.kcc-version }}
+        run: scripts/fetch-manifest.sh
 
       - name: Install chart
         run: |
@@ -97,10 +93,10 @@ jobs:
           kind create cluster --name test --image kindest/node:v1.30.0
 
       - name: Fetch manifest
-        run: scripts/fetch-manifest.sh ${{ inputs.kcc-version }}
+        run: scripts/fetch-manifest.sh
 
       - name: Package chart
-        run: helm package chart/config-connector --version ${{ inputs.kcc-version }} --app-version ${{ inputs.kcc-version }}
+        run: helm package chart/config-connector
 
       - name: Start local registry
         run: |
@@ -110,14 +106,15 @@ jobs:
           sleep 2
 
       - name: Push chart to local registry
-        run: |
-          helm push config-connector-${{ inputs.kcc-version }}.tgz oci://localhost:5000 --plain-http
+        run: helm push config-connector-*.tgz oci://localhost:5000 --plain-http
 
       - name: Install Flux
         run: flux install
 
       - name: Apply OCIRepository
         run: |
+          CHART_VERSION=$(helm show chart chart/config-connector | awk '/^version:/{print $2}')
+          test -n "$CHART_VERSION"
           cat <<EOF | kubectl apply -f -
           apiVersion: source.toolkit.fluxcd.io/v1
           kind: OCIRepository
@@ -128,7 +125,7 @@ jobs:
             interval: 10m
             url: oci://registry:5000/config-connector
             ref:
-              tag: ${{ inputs.kcc-version }}
+              tag: ${CHART_VERSION}
             insecure: true
           EOF
 

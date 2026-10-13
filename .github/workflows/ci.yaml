@@ -25,5 +25,3 @@ jobs:
     name: Test
     needs: lint
     uses: ./.github/workflows/test.yaml
-    with:
-      kcc-version: "1.158.0"
