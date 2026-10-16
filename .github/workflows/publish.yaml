@@ -70,7 +70,7 @@ jobs:
     runs-on: ubuntu-latest
     if: github.repository == 'lioramilbaum/config-connector-helm' && needs.resolve-version.outputs.skip != 'true'
     permissions:
-      contents: read
+      contents: write
       packages: write
       id-token: write
     steps:
@@ -117,6 +117,20 @@ jobs:
             --certificate-identity https://github.com/lioramilbaum/config-connector-helm/.github/workflows/publish.yaml@refs/heads/main \
             --certificate-oidc-issuer https://token.actions.githubusercontent.com \
             ghcr.io/lioramilbaum/config-connector-helm/config-connector@${{ steps.digest.outputs.value }}
+
+      - name: Create GitHub Release
+        if: inputs.version == ''
+        env:
+          VERSION: ${{ needs.resolve-version.outputs.version }}
+        run: |
+          if gh release view "$VERSION" >/dev/null 2>&1; then
+            echo "::notice::Release $VERSION already exists, skipping"
+            exit 0
+          fi
+          gh release create "$VERSION" \
+            --target "$GITHUB_SHA" \
+            --title "v$VERSION" \
+            --generate-notes
 
   verify-flux:
     name: Verify Flux integration
