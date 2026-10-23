@@ -38,7 +38,7 @@ tests/
   publish.yaml                     # Scheduled discovery, test, package, sign, publish
 mise.toml                          # Pinned tool versions and task definitions
 pyproject.toml                     # Python project metadata (pytest, pyyaml)
-renovate.json5                     # Renovate config: auto-bump KCC version and operator image digest (grouped)
+renovate.json5                     # Renovate config: KCC version + operator digest in one "Config Connector" PR; all other deps in one "Dev tools" PR
 README.md                          # User-facing documentation
 LICENSE                            # Apache 2.0 (created by GitHub)
 NOTICE                             # Attribution to upstream
