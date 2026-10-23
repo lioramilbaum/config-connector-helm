@@ -87,6 +87,13 @@ class TestCommittedDigest:
             "Renovate marker must be immediately above the digest: line"
         )
 
+    def test_upstream_bundle_annotation_matches_app_version(self, chart_dir):
+        chart = yaml.safe_load((chart_dir / "Chart.yaml").read_text())
+        app_version = chart["appVersion"]
+        expected = f"gs://configconnector-operator/{app_version}/release-bundle.tar.gz"
+        actual = chart["annotations"]["config-connector-helm/upstream-bundle"]
+        assert actual == expected, f"upstream-bundle annotation {actual!r} != {expected!r}"
+
 
 class TestSchemaValidation:
     def test_schema_typo_fails(self):

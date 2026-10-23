@@ -6,17 +6,18 @@
   ],
   customManagers: [
     {
-      description: 'KCC upstream version tracked in Chart.yaml',
+      description: 'KCC version in Chart.yaml (version, appVersion, upstream-bundle annotation); tracks the same docker package as values.yaml so both always land in one PR',
       customType: 'regex',
       managerFilePatterns: [
         '/^chart/config-connector/Chart\\.yaml$/',
       ],
       matchStrings: [
         '(?:version|appVersion):[\\s"]*(?<currentValue>[0-9][0-9.]+)',
+        'gs://configconnector-operator/(?<currentValue>\\d+\\.\\d+\\.\\d+)/release-bundle\\.tar\\.gz',
       ],
-      depNameTemplate: 'GoogleCloudPlatform/k8s-config-connector',
-      datasourceTemplate: 'github-releases',
-      extractVersionTemplate: '^v(?<version>.+)',
+      depNameTemplate: 'gcr.io/gke-release/cnrm/operator',
+      datasourceTemplate: 'docker',
+      versioningTemplate: 'docker',
     },
     {
       description: 'KCC operator image digest in values.yaml (must track Chart.yaml appVersion)',
@@ -34,31 +35,23 @@
   ],
   packageRules: [
     {
-      matchPackageNames: [
-        'GoogleCloudPlatform/k8s-config-connector',
-        'gcr.io/gke-release/cnrm/operator',
-      ],
+      matchUpdateTypes: ['minor', 'patch'],
       automerge: true,
       automergeType: 'pr',
-      matchUpdateTypes: [
-        'minor',
-        'patch',
-      ],
     },
     {
-      // Belt-and-suspenders: the customManager matchStrings already constrains to x.y.z,
-      // but this blocks Renovate from offering non-release tags if extraction is ever widened.
-      matchPackageNames: [
-        'gcr.io/gke-release/cnrm/operator',
-      ],
+      // gcr.io/gke-release/cnrm/operator has all-digit commit-hash tags (e.g. 1159540)
+      // that docker versioning ranks above x.y.z; restrict candidates to x.y.z only.
+      matchPackageNames: ['gcr.io/gke-release/cnrm/operator'],
       allowedVersions: '/^\\d+\\.\\d+\\.\\d+$/',
     },
     {
-      matchPackageNames: [
-        'GoogleCloudPlatform/k8s-config-connector',
-        'gcr.io/gke-release/cnrm/operator',
-      ],
+      matchPackageNames: ['gcr.io/gke-release/cnrm/operator'],
       groupName: 'Config Connector',
+    },
+    {
+      matchPackageNames: ['!gcr.io/gke-release/cnrm/operator'],
+      groupName: 'Dev tools',
     },
   ],
 }

@@ -20,4 +20,4 @@ keywords:
   - flux
 icon: https://avatars.githubusercontent.com/u/2810941
 annotations:
-  config-connector-helm/upstream-bundle: "gs://configconnector-operator/1.158.0/release-bundle.tar.gz"
+  config-connector-helm/upstream-bundle: "gs://configconnector-operator/1.159.0/release-bundle.tar.gz"
