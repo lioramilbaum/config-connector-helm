@@ -1,7 +1,7 @@
 {
   $schema: 'https://docs.renovatebot.com/renovate-schema.json',
   extends: [
-    'config:recommended',
+    'github>lioramilbaum/renovate-config',
     'helpers:pinGitHubActionDigests',
   ],
   customManagers: [
@@ -33,6 +33,7 @@
       autoReplaceStringTemplate: '# renovate: image={{{depName}}} tag={{{newValue}}}\n  digest: "{{{newDigest}}}"',
     },
   ],
+  // group:all is inherited from github>lioramilbaum/renovate-config; local packageRules override it with finer-grained groups
   packageRules: [
     {
       matchUpdateTypes: ['minor', 'patch'],
