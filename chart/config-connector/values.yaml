@@ -20,8 +20,8 @@ image:
   # Committed here and updated by Renovate in the same PR as the Chart.yaml version bump.
   # CI fails if empty or if the marker tag below differs from Chart.yaml appVersion (tests/test_guards.py).
   # When overriding image.tag or image.repository, set the matching digest or "" to use tag-only.
-  # renovate: image=gcr.io/gke-release/cnrm/operator tag=1.161.0
-  digest: "sha256:5d86ef5a6df396eb07dcdae4e8b73031105ae1326df59eb6e9dba27661565e4e"
+  # renovate: image=gcr.io/gke-release/cnrm/operator tag=1.162.0
+  digest: "sha256:ff3b86fea1bf13b729f1ab0acfcca73e748855dfca42ec50135f063b555b0b36"
   # Pull policy; empty string = use upstream Always
   pullPolicy: ""
 
